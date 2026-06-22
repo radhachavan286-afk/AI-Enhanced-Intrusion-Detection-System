@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Enhanced Intrusion Detection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #05070d;
+            --bg-deep: #060a14;
+            --panel-tint: rgba(13, 20, 36, 0.55);
+            --panel-border: rgba(56, 189, 248, 0.22);
+            --field-tint: rgba(7, 12, 22, 0.65);
+            --line: rgba(148, 184, 219, 0.16);
+            --text-primary: #eef4fb;
+            --text-muted: #7f93ad;
+            --accent: #38bdf8;
+            --accent-bright: #7ee0ff;
+            --accent-dim: #1b89c2;
+            --accent-soft: rgba(56, 189, 248, 0.16);
+            --alert: #ff5d6c;
+        }
+
+        * { box-sizing: border-box; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+            }
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: radial-gradient(ellipse at 30% 20%, #0b1626 0%, var(--bg-base) 55%), var(--bg-base);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 24px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #netbg {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: block;
+        }
+
+        .glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.30;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .glow-a {
+            width: 420px;
+            height: 420px;
+            top: -120px;
+            left: -100px;
+            background: #1da3e8;
+            animation: drift-a 16s ease-in-out infinite;
+        }
+
+        .glow-b {
+            width: 360px;
+            height: 360px;
+            bottom: -140px;
+            right: -100px;
+            background: #5b6fe6;
+            animation: drift-b 19s ease-in-out infinite;
+        }
+
+        @keyframes drift-a {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(60px, 40px); }
+        }
+
+        @keyframes drift-b {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-50px, -30px); }
+        }
+
+        .console {
+            position: relative;
+            z-index: 2;
+            width: 380px;
+            max-width: 100%;
+            background: var(--panel-tint);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(56, 189, 248, 0.05) inset, 0 0 40px rgba(56, 189, 248, 0.07);
+            opacity: 0;
+            transform: translateY(14px);
+            animation: rise 0.6s ease-out forwards;
+        }
+
+        @keyframes rise {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .console-header {
+            position: relative;
+            padding: 20px 26px 18px;
+            border-bottom: 1px solid var(--line);
+            overflow: hidden;
+        }
+
+        .console-header::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 40%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-bright), transparent);
+            box-shadow: 0 0 12px var(--accent);
+            animation: scan 3.4s ease-in-out infinite;
+        }
+
+        @keyframes scan {
+            0%   { left: -40%; }
+            100% { left: 100%; }
+        }
+
+        .eyebrow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.7em;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 9px;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent), 0 0 0 0 var(--accent-soft);
+            animation: pulse 2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes pulse {
+            0%   { box-shadow: 0 0 8px var(--accent), 0 0 0 0 rgba(56, 189, 248, 0.5); }
+            70%  { box-shadow: 0 0 8px var(--accent), 0 0 0 7px rgba(56, 189, 248, 0); }
+            100% { box-shadow: 0 0 8px var(--accent), 0 0 0 0 rgba(56, 189, 248, 0); }
+        }
+
+        h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.18em;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin: 0;
+            color: var(--text-primary);
+            text-shadow: 0 0 18px rgba(56, 189, 248, 0.25);
+        }
+
+        form {
+            padding: 22px 26px 26px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .field {
+            margin-bottom: 16px;
+            opacity: 0;
+            transform: translateY(6px);
+            animation: rise 0.45s ease-out forwards;
+        }
+
+        .field:nth-of-type(1) { animation-delay: 0.10s; }
+        .field:nth-of-type(2) { animation-delay: 0.18s; }
+        .field:nth-of-type(3) { animation-delay: 0.26s; }
+        .field:nth-of-type(4) { animation-delay: 0.34s; }
+
+        label {
+            display: block;
+            font-size: 0.72em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        input[type=number], input[type=text] {
+            width: 100%;
+            padding: 11px 12px;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            background-color: var(--field-tint);
+            color: var(--text-primary);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.95em;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+
+        input[type=number]::placeholder, input[type=text]::placeholder {
+            color: #4c5b70;
+        }
+
+        input[type=number]:hover, input[type=text]:hover {
+            border-color: rgba(56, 189, 248, 0.35);
+        }
+
+        input[type=number]:focus, input[type=text]:focus {
+            border-color: var(--accent);
+            background-color: rgba(8, 16, 28, 0.85);
+            box-shadow: 0 0 0 3px var(--accent-soft), 0 0 16px rgba(56, 189, 248, 0.15);
+        }
+
+        input[type=number]::-webkit-inner-spin-button {
+            opacity: 0.4;
+        }
+
+        input[type=submit] {
+            width: 100%;
+            margin-top: 6px;
+            padding: 12px;
+            border: 1px solid var(--accent-dim);
+            border-radius: 7px;
+            background: linear-gradient(180deg, #43c8ff, #1d9fe0);
+            color: #04141f;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.92em;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+        }
+
+        input[type=submit]:hover {
+            filter: brightness(1.08);
+            box-shadow: 0 8px 26px rgba(56, 189, 248, 0.35), 0 0 18px rgba(56, 189, 248, 0.3);
+            transform: translateY(-1px);
+        }
+
+        input[type=submit]:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 10px rgba(56, 189, 248, 0.25);
+        }
+
+        .prediction {
+            position: relative;
+            z-index: 2;
+            margin: 0 26px 26px;
+            padding: 14px 16px;
+            border-radius: 9px;
+            border: 1px solid var(--panel-border);
+            background: rgba(8, 16, 28, 0.6);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            animation: rise 0.45s ease-out forwards;
+        }
+
+        .prediction .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent), 0 0 0 0 rgba(56, 189, 248, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+
+        .prediction h3 {
+            margin: 0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85em;
+            font-weight: 500;
+            color: var(--text-primary);
+            letter-spacing: 0.01em;
+        }
+
+        .prediction .result-label {
+            display: block;
+            font-size: 0.68em;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="netbg"></canvas>
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+
+    <div class="console">
+        <div class="console-header">
+            <div class="eyebrow"><span class="status-dot"></span>System Active &middot; Flow Ingest</div>
+            <h2>AI-Enhanced Intrusion Detection</h2>
+        </div>
+
+        <form method="POST" action="/predict">
+            <div class="field">
+                <label for="flow_duration">Flow Duration</label>
+                <input type="number" step="any" name="flow_duration" id="flow_duration" placeholder="0.000" required>
+            </div>
+
+            <div class="field">
+                <label for="total_fwd_packets">Total Fwd Packets</label>
+                <input type="number" step="any" name="total_fwd_packets" id="total_fwd_packets" placeholder="0" required>
+            </div>
+
+            <div class="field">
+                <label for="total_backward_packets">Total Backward Packets</label>
+                <input type="number" step="any" name="total_backward_packets" id="total_backward_packets" placeholder="0" required>
+            </div>
+
+            <div class="field">
+                <label for="total_length_fwd_packets">Total Length of Fwd Packets</label>
+                <input type="number" step="any" name="total_length_fwd_packets" id="total_length_fwd_packets" placeholder="0" required>
+            </div>
+
+            <input type="submit" value="Run Prediction">
+        </form>
+
+        {% if prediction %}
+            <div class="prediction">
+                <span class="dot"></span>
+                <h3><span class="result-label">Prediction</span>{{ prediction }}</h3>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        (function () {
+            var canvas = document.getElementById('netbg');
+            var ctx = canvas.getContext('2d');
+            var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var W, H, particles, animId;
+            var COUNT = 70;
+            var LINK_DIST = 130;
+
+            function resize() {
+                W = canvas.width = window.innerWidth;
+                H = canvas.height = window.innerHeight;
+            }
+
+            function makeParticles() {
+                particles = [];
+                var count = Math.min(COUNT, Math.floor((W * H) / 16000));
+                for (var i = 0; i < count; i++) {
+                    particles.push({
+                        x: Math.random() * W,
+                        y: Math.random() * H,
+                        vx: (Math.random() - 0.5) * 0.25,
+                        vy: (Math.random() - 0.5) * 0.25,
+                        r: Math.random() * 1.4 + 0.6
+                    });
+                }
+            }
+
+            function step() {
+                ctx.clearRect(0, 0, W, H);
+
+                for (var i = 0; i < particles.length; i++) {
+                    var p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+                    if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+                }
+
+                for (var i = 0; i < particles.length; i++) {
+                    for (var j = i + 1; j < particles.length; j++) {
+                        var a = particles[i], b = particles[j];
+                        var dx = a.x - b.x, dy = a.y - b.y;
+                        var dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < LINK_DIST) {
+                            var alpha = (1 - dist / LINK_DIST) * 0.35;
+                            ctx.strokeStyle = 'rgba(56, 189, 248,' + alpha + ')';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(a.x, a.y);
+                            ctx.lineTo(b.x, b.y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                for (var i = 0; i < particles.length; i++) {
+                    var p = particles[i];
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(126, 224, 255, 0.85)';
+                    ctx.shadowColor = 'rgba(56, 189, 248, 0.9)';
+                    ctx.shadowBlur = 6;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+
+                if (!reduceMotion) {
+                    animId = requestAnimationFrame(step);
+                }
+            }
+
+            function init() {
+                resize();
+                makeParticles();
+                if (animId) cancelAnimationFrame(animId);
+                step();
+            }
+
+            window.addEventListener('resize', function () {
+                resize();
+                makeParticles();
+            });
+
+            init();
+        })();
+    </script>
+</body>
+</html>
